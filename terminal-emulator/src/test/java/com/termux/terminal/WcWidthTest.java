@@ -78,4 +78,50 @@ public class WcWidthTest extends TestCase {
 		assertWidthIs(2, 0x1F643); // UPSIDE-DOWN FACE (Unicode 8).
 	}
 
+	public void testBengaliBaseConsonantsHaveWidthOne() {
+		// Bengali base consonants must continue to occupy one terminal cell.
+		assertWidthIs(1, 0x0995); // ক  Bengali Letter Ka
+		assertWidthIs(1, 0x09AC); // ব  Bengali Letter Ba
+		assertWidthIs(1, 0x09B6); // শ  Bengali Letter Sha
+		assertWidthIs(1, 0x09A8); // ন  Bengali Letter Na
+		assertWidthIs(1, 0x09B2); // ল  Bengali Letter La
+	}
+
+	public void testBengaliCombiningMarksAlreadyZeroWidth() {
+		// Pre-existing zero-width entries from the upstream table must keep returning 0.
+		assertWidthIs(0, 0x0981); // ঁ  Bengali Sign Candrabindu
+		assertWidthIs(0, 0x09BC); // ়  Bengali Sign Nukta
+		assertWidthIs(0, 0x09C1); // ু  Bengali Vowel Sign U
+		assertWidthIs(0, 0x09C2); // ূ  Bengali Vowel Sign Uu
+		assertWidthIs(0, 0x09CD); // ্  Bengali Sign Virama (halant)
+	}
+
+	public void testBengaliSpacingMarksAreTreatedAsZeroWidth() {
+		// Termux deviation: Bengali spacing combining marks (general category Mc) are treated as
+		// zero-width so each Bengali grapheme cluster lives in a single terminal cell and shapes
+		// correctly. See WcWidth.BENGALI_SPACING_MARKS.
+		assertWidthIs(0, 0x0982); // ং  Bengali Sign Anusvara
+		assertWidthIs(0, 0x0983); // ঃ  Bengali Sign Visarga
+		assertWidthIs(0, 0x09BE); // া  Bengali Vowel Sign Aa
+		assertWidthIs(0, 0x09BF); // ি  Bengali Vowel Sign I (pre-base matra)
+		assertWidthIs(0, 0x09C0); // ী  Bengali Vowel Sign Ii
+		assertWidthIs(0, 0x09C7); // ে  Bengali Vowel Sign E (pre-base matra)
+		assertWidthIs(0, 0x09C8); // ৈ  Bengali Vowel Sign Ai (pre-base matra)
+		assertWidthIs(0, 0x09CB); // ো  Bengali Vowel Sign O
+		assertWidthIs(0, 0x09CC); // ৌ  Bengali Vowel Sign Au
+		assertWidthIs(0, 0x09D7); // ৗ  Bengali Au Length Mark
+	}
+
+	public void testBengaliClusterCellWidth() {
+		// A Bengali word like "বাংলা" (bāṅlā) is six code points: ব া ং ল া. Five of those code
+		// points are spacing/combining marks that should now be zero-width, so the whole word
+		// occupies just two terminal cells (one per base consonant ব and ল).
+		char[] banglaWord = "বাংলা".toCharArray();
+		int totalWidth = 0;
+		for (int i = 0; i < banglaWord.length; i++) {
+			totalWidth += WcWidth.width(banglaWord, i);
+		}
+		assertEquals(2, totalWidth);
+	}
+
 }
