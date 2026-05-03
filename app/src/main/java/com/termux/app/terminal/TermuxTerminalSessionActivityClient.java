@@ -510,10 +510,31 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             }
             updateBackgroundColor();
 
-            final Typeface newTypeface = (fontFile.exists() && fontFile.length() > 0) ? Typeface.createFromFile(fontFile) : Typeface.MONOSPACE;
+            final Typeface newTypeface = (fontFile.exists() && fontFile.length() > 0)
+                ? Typeface.createFromFile(fontFile)
+                : loadDefaultTypeface();
             mActivity.getTerminalView().setTypeface(newTypeface);
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Error in checkForFontAndColors()", e);
+        }
+    }
+
+    /**
+     * Load the bundled Bengali-capable typeface used when the user has not placed a custom font
+     * at {@link TermuxConstants#TERMUX_FONT_FILE_PATH}. Falls back to {@link Typeface#MONOSPACE} if
+     * the bundled asset cannot be loaded.
+     *
+     * The bundled asset is {@code assets/fonts/NotoSansBengali-Regular.ttf} (SIL OFL 1.1, see the
+     * accompanying {@code NotoSansBengali-OFL.txt}). Noto Sans Bengali ships with both Bengali and
+     * basic Latin glyphs and supplies the conjunct/matra shaping rules that Android's default
+     * monospace fallback chain renders inconsistently inside the terminal grid.
+     */
+    private Typeface loadDefaultTypeface() {
+        try {
+            return Typeface.createFromAsset(mActivity.getAssets(), "fonts/NotoSansBengali-Regular.ttf");
+        } catch (RuntimeException e) {
+            Logger.logStackTraceWithMessage(LOG_TAG, "Failed to load bundled NotoSansBengali asset; falling back to Typeface.MONOSPACE", e);
+            return Typeface.MONOSPACE;
         }
     }
 

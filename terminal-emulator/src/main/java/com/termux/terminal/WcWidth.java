@@ -5,6 +5,13 @@ package com.termux.terminal;
  *
  * Implementation from https://github.com/jquast/wcwidth but we return 0 for unprintable characters.
  *
+ * Termux deviation: in addition to the upstream zero-width table this class also reports a width of
+ * 0 for Bengali spacing combining marks (see {@link #BENGALI_SPACING_MARKS}). Standard wcwidth
+ * advances the cursor for these marks, but the terminal renderer renders correctly only when the
+ * full Bengali grapheme cluster lives in one cell and is shaped together by Canvas.drawTextRun. The
+ * libandroid-support package can keep the strict wcwidth(3) semantics; this Java table affects only
+ * the on-screen layout/rendering inside the Termux app.
+ *
  * IMPORTANT:
  * Must be kept in sync with the following:
  * https://github.com/termux/wcwidth
@@ -362,6 +369,28 @@ public final class WcWidth {
         {0xe0100, 0xe01ef},  // Variation Selector-17   ..Variation Selector-256
     };
 
+    // Spacing combining marks (Unicode general category Mc) for the Bengali script that should be
+    // treated as zero-width for terminal cell assignment.
+    //
+    // Standard wcwidth(3) returns 1 for these characters because they advance the cursor in plain
+    // monospace text. However, Bengali requires complex shaping (pre-base reordering, conjuncts,
+    // and matra attachment) that breaks when the renderer assigns each spacing mark its own cell:
+    // matras like 0x09BF (i-kar) and 0x09C7 (e-kar) display BEFORE the preceding consonant and end
+    // up rendered with a dotted-circle placeholder when separated from their base, producing the
+    // jumbled "elo melo" appearance reported by Bangla users.
+    //
+    // Treating these marks as zero-width lets the renderer absorb them into the previous run so the
+    // entire grapheme cluster is shaped together via Canvas.drawTextRun. This matches how modern
+    // terminals (e.g. kitty, alacritty with grapheme support) handle Indic clusters.
+    private static final int[][] BENGALI_SPACING_MARKS = {
+        {0x00982, 0x00983}, // Bengali Sign Anusvara    ..Bengali Sign Visarga
+        {0x009BE, 0x009BE}, // Bengali Vowel Sign Aa    ..Bengali Vowel Sign Aa
+        {0x009BF, 0x009C0}, // Bengali Vowel Sign I     ..Bengali Vowel Sign Ii
+        {0x009C7, 0x009C8}, // Bengali Vowel Sign E     ..Bengali Vowel Sign Ai
+        {0x009CB, 0x009CC}, // Bengali Vowel Sign O     ..Bengali Vowel Sign Au
+        {0x009D7, 0x009D7}, // Bengali Au Length Mark   ..Bengali Au Length Mark
+    };
+
     // https://github.com/jquast/wcwidth/blob/master/wcwidth/table_wide.py
     // from https://github.com/jquast/wcwidth/pull/64
     // at commit 1b9b6585b0080ea5cb88dc9815796505724793fe (2022-12-16):
@@ -528,6 +557,12 @@ public final class WcWidth {
 
         // combining characters with zero width
         if (intable(ZERO_WIDTH, ucs)) return 0;
+
+        // Bengali spacing combining marks: treated as zero-width so the renderer keeps each Bengali
+        // grapheme cluster (consonant + matra/anusvara/visarga) in a single cell with proper
+        // shaping. Without this, pre-base matras such as 0x09BF render with a dotted-circle
+        // placeholder instead of attaching to the preceding consonant.
+        if (intable(BENGALI_SPACING_MARKS, ucs)) return 0;
 
         return intable(WIDE_EASTASIAN, ucs) ? 2 : 1;
     }
